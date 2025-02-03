@@ -1,4 +1,3 @@
-
 using UnityEngine.UI;
 using TMPro;
 using Photon.Pun;
@@ -12,6 +11,9 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
     private void Start()
     {
+        // Включаем синхронизацию сцен
+        PhotonNetwork.AutomaticallySyncScene = true;
+
         // Обновляем информацию о комнате
         UpdateRoomInfo();
         UpdatePlayersList();
@@ -48,6 +50,9 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
     public void StartGame()
     {
-        PhotonNetwork.LoadLevel("GameScene"); // Загружаем игровую сцену
+        if (PhotonNetwork.IsMasterClient)
+        {
+            PhotonNetwork.LoadLevel("GameScene"); // Загружаем игровую сцену у всех игроков
+        }
     }
 }
