@@ -11,6 +11,9 @@ public class LobbySetup : MonoBehaviourPunCallbacks
     public TMP_InputField passwordInput;
     public Button startGameButton;
     public TMP_Text statusText;
+    
+    public Button exitbutton;
+
 
     private void Start()
     {
@@ -20,6 +23,8 @@ public class LobbySetup : MonoBehaviourPunCallbacks
 
         // Подключаем обработчик к кнопке
         startGameButton.onClick.AddListener(CreateRoom);
+        //кнопка выхода
+         exitbutton.onClick.AddListener(ExitInMain);
     }
 
     private void TogglePasswordField()
@@ -63,5 +68,8 @@ public class LobbySetup : MonoBehaviourPunCallbacks
     public override void OnCreateRoomFailed(short returnCode, string message)
     {
         statusText.text = "Ошибка создания комнаты: " + message;
+    }
+    private void ExitInMain(){
+         PhotonNetwork.LoadLevel("MainMenu");
     }
 }
