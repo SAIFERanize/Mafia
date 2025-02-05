@@ -201,8 +201,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 386796750}
   m_HandleRect: {fileID: 386796749}
   m_Direction: 0
-  m_Value: 0.0000021567155
-  m_Size: 0.9826985
+  m_Value: 0
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -685,7 +685,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   contentPanel: {fileID: 2117825177}
-  roomItemPrefab: {fileID: 3645852333575252272, guid: 2eccf56889d81ac4ba8b2e42af076310, type: 3}
+  roomItemPrefab: {fileID: 2800522859763382474, guid: 2b903f91204c65442abd32d93a310b95, type: 3}
   noRoomsText: {fileID: 294735662}
   backButton: {fileID: 2002321537}
 --- !u!4 &613732982
@@ -1685,17 +1685,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2117825176}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0.0011344751, y: 0, z: 0, w: 0.9999994}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 4.8125, z: 1}
+  m_LocalScale: {x: 0.65, y: 1.16, z: 1.37}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 431258112}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
+  m_LocalEulerAnglesHint: {x: 0.13, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0, y: 0.00087339873}
-  m_SizeDelta: {x: 28.3, y: 0}
+  m_AnchoredPosition: {x: 0.00005095375, y: 0}
+  m_SizeDelta: {x: 25.300049, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &2117825178
 MonoBehaviour:
