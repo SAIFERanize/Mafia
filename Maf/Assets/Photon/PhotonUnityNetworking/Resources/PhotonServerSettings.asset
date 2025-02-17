@@ -40,6 +40,9 @@ MonoBehaviour:
   - Fire
   - RespawnSpaceship
   - RPC_AddMessage
+  - RPC_RegisterVote
+  - RPC_KillPlayer
+  - RPC_AddMafiaMessage
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 1
