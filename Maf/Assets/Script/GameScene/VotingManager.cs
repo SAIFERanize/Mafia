@@ -22,6 +22,7 @@
 
         [Tooltip("Ссылка на менеджер игры")]
         public GameManager gameManager;
+        private bool hasVoted = false;
 
         // Словарь для хранения голосов: ключ – ник игрока, значение – число голосов
         private Dictionary<string, int> votes = new Dictionary<string, int>();
@@ -32,7 +33,8 @@
         // Метод, который вызывается для отображения панели голосования.
         // Он очищает панель, создаёт UI-элементы для каждого игрока и инициализирует словари.
       public void ShowVotingPanel()
-{
+{   
+        hasVoted = false;
     // Если это ночное голосование, проверяем роль игрока
     if (phaseManager.CurrentPhase == GamePhase.NightVoting)
     {
@@ -59,6 +61,7 @@
     votePanel.SetActive(true);
 
     // Очистка предыдущих элементов
+      // Очищаем предыдущие элементы
     foreach (Transform child in votePanel.transform)
     {
         Destroy(child.gameObject);
@@ -66,14 +69,13 @@
     votingEntries.Clear();
     votes.Clear();
 
-    // Создаем элемент голосования для каждого игрока
-  foreach (Player player in PhotonNetwork.PlayerList)
-{
-    if (player.NickName == PhotonNetwork.LocalPlayer.NickName)
-        continue; // Пропускаем создание элемента для самого себя
+    foreach (Player player in PhotonNetwork.PlayerList) 
+    {
+        if (player.NickName == PhotonNetwork.LocalPlayer.NickName)
+            continue; // Пропускаем самого себя
 
-    CreateVotingEntry(player.NickName);
-}   
+        CreateVotingEntry(player.NickName);
+    }   
 }
 
         // Метод для скрытия панели голосования.
@@ -83,29 +85,51 @@
         }
     
         // Создает UI-элемент голосования для игрока с именем playerName.
-        private void CreateVotingEntry(string playerName)
+      private void CreateVotingEntry(string playerName)
+{
+    GameObject entryObj = Instantiate(votingEntryPrefab, votePanel.transform);
+    VotingEntry entry = entryObj.GetComponent<VotingEntry>();
+    if (entry != null)
+    {
+        bool isDead = false;
+        // Ищем игрока по имени, чтобы узнать его статус
+        foreach (Player player in PhotonNetwork.PlayerList)
         {
-            GameObject entryObj = Instantiate(votingEntryPrefab, votePanel.transform);
-            VotingEntry entry = entryObj.GetComponent<VotingEntry>();
-            if (entry != null)
+            if (player.NickName == playerName)
             {
-                // Передаём имя игрока и callback на нажатие кнопки голосования
-                entry.Setup(playerName, OnVoteButtonClicked);
-                votingEntries[playerName] = entry;
+                isDead = player.CustomProperties.ContainsKey("isDead") && (bool)player.CustomProperties["isDead"];
+                break;
             }
-            // Инициализируем голос как 0
-            votes[playerName] = 0;
         }
+        // Передаём флаг isDead в Setup
+        entry.Setup(playerName, isDead, OnVoteButtonClicked);
+        votingEntries[playerName] = entry;
+    }
+    votes[playerName] = 0;
+}
 
         
         // Метод, вызываемый при нажатии кнопки голосования.
-     private void OnVoteButtonClicked(string votedPlayer)
+private void OnVoteButtonClicked(string votedPlayer)
 {
-    // Если это ночное голосование, проверяем роль голосующего
+    // Проверяем, если игрок уже голосовал, то больше голосовать нельзя
+    if (hasVoted)
+    {
+        Debug.Log("Вы уже проголосовали!");
+        return;
+    }
+
+    // Если игрок мёртв, не даём голосовать
+    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("isDead", out object isDeadObj) && (bool)isDeadObj)
+    {
+        Debug.Log("[VotingManager] Мёртвые игроки не могут голосовать.");
+        return;
+    }
+
+    // Если это ночное голосование – разрешено голосовать только мафии
     if (phaseManager.CurrentPhase == GamePhase.NightVoting)
     {
-        object role;
-        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out role))
+        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object role))
         {
             if (role.ToString().ToLower() != "mafia")
             {
@@ -115,39 +139,48 @@
         }
         else
         {
-            Debug.Log("[VotingManager] Роль не задана, предполагается мирный — голосование невозможно ночью.");
+            Debug.Log("[VotingManager] Роль не задана, предполагается мирный – голосование невозможно ночью.");
             return;
         }
     }
 
-    // Дополнительная проверка фазы (если нужно)
+    // Проверка доступности голосования по фазе
     if (phaseManager.CurrentPhase != GamePhase.DayVoting && phaseManager.CurrentPhase != GamePhase.NightVoting)
     {
         Debug.Log("Голосование сейчас недоступно!");
         return;
     }
 
-    photonView.RPC("RPC_RegisterVote", RpcTarget.All, PhotonNetwork.NickName, votedPlayer);
+    // Получаем локальную роль отправителя (по умолчанию "civilian")
+    string localRole = "civilian";
+    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object localRoleObj))
+        localRole = localRoleObj.ToString().ToLower();
+
+    // Отмечаем, что игрок проголосовал
+    hasVoted = true;
+
+    // Регистрируем голос через RPC, передавая также роль отправителя
+    photonView.RPC("RPC_RegisterVote", RpcTarget.All, PhotonNetwork.NickName, votedPlayer, localRole);
 }
+
         // RPC-метод для регистрации голоса.
         // Вызывается на всех клиентах.
-        [PunRPC]
-        private void RPC_RegisterVote(string votingPlayer, string votedPlayer)
-        {
-            if (votes.ContainsKey(votedPlayer))
-            {
-                votes[votedPlayer]++;
-                UpdateVotingUI(votedPlayer);
-            }
-            else
-            {
-                Debug.LogWarning("Попытка голосовать за неизвестного игрока: " + votedPlayer);
-            }
+[PunRPC]
+public void RPC_RegisterVote(string votingPlayer, string votedPlayer, string votingPlayerRole)
+{
+    if (votes.ContainsKey(votedPlayer))
+    {
+        votes[votedPlayer]++;
+        UpdateVotingUI(votedPlayer);
+    }
+    else
+    {
+        Debug.LogWarning("Попытка голосовать за неизвестного игрока: " + votedPlayer);
+    }
 
-            // Отправляем сообщение в чат
-            gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All, $"{votingPlayer} проголосовал за {votedPlayer}");
-        }
-
+    // Отправляем сообщение в чат вместе с ролью отправителя
+    gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All, $"{votingPlayer} проголосовал за {votedPlayer}", votingPlayerRole);
+}
 
         // Обновляет UI-элемент для игрока с новым количеством голосов.
         private void UpdateVotingUI(string playerName)
@@ -157,40 +190,53 @@
                 votingEntries[playerName].SetVoteCount(votes[playerName]);
             }
         }
-
-    
         // Метод, который вызывается при завершении фазы голосования.
         // Здесь определяется игрок с максимальным числом голосов, выводится сообщение об исключении и панель скрывается.
-       public void EndVoting()
+      public void EndVoting()
 {
-    // Определяем игрока с максимальным числом голосов
+    // Находим, какое максимальное число голосов набрано
     int maxVotes = -1;
-    string eliminatedPlayer = "";
-    foreach (KeyValuePair<string, int> pair in votes)
+    foreach (var pair in votes)
     {
         if (pair.Value > maxVotes)
-        {
             maxVotes = pair.Value;
-            eliminatedPlayer = pair.Key;
-        }
     }
 
+    // Если никто не набрал голосов (maxVotes <= 0) – никто не умирает
     if (maxVotes <= 0)
     {
-        gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All, "Голосование завершилось без голосов.");
+        // Вызов RPC_AddMessage с двумя строковыми параметрами
+        gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
+            "Голосование завершилось без голосов.", "");
     }
     else
     {
-        gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All, $"{eliminatedPlayer} покинул наш мир");
-        
-        // Вызов RPC_KillPlayer в GameManager для пометки игрока как убитого
-       GameManager gm = UnityEngine.Object.FindAnyObjectByType<GameManager>();
+        // Собираем всех игроков, у кого число голосов == maxVotes
+        List<string> topVotedPlayers = new List<string>();
+        foreach (var pair in votes)
+        {
+            if (pair.Value == maxVotes)
+                topVotedPlayers.Add(pair.Key);
+        }
+
+        // Если в topVotedPlayers больше одного игрока, будет жребий
+        // Случайно выбираем одного из списка
+        int randomIndex = Random.Range(0, topVotedPlayers.Count);
+        string eliminatedPlayer = topVotedPlayers[randomIndex];
+
+        // Отправляем сообщение в чат
+        gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
+            $"{eliminatedPlayer} покинул наш мир", "");
+
+        // Помечаем выбранного игрока убитым
+        GameManager gm = FindAnyObjectByType<GameManager>();
         if (gm != null)
         {
-          gm.photonView.RPC("RPC_KillPlayer", RpcTarget.All, eliminatedPlayer);
+            gm.photonView.RPC("RPC_KillPlayer", RpcTarget.All, eliminatedPlayer);
         }
     }
 
+    // Скрываем панель голосования
     HideVotingPanel();
 }
 

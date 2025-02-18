@@ -22,7 +22,7 @@ public class LobbyManager : MonoBehaviourPunCallbacks
 
     private void UpdateRoomInfo()
     {
-        roomInfoText.text = "Комната: " + PhotonNetwork.CurrentRoom.Name +
+        roomInfoText.text = "" + PhotonNetwork.CurrentRoom.Name +
                             (PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey("password") ? " (Приватная)" : "");
     }
 

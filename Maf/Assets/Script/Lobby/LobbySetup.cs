@@ -41,10 +41,10 @@ public class LobbySetup : MonoBehaviourPunCallbacks
         dayVotingSlider.maxValue = 60;
 
         // Устанавливаем дефолтные значения (например, как в предыдущем варианте)
-        nightDiscussionSlider.value = 30;
-        nightVotingSlider.value = 20;
-        dayDiscussionSlider.value = 30;
-        dayVotingSlider.value = 20;
+        nightDiscussionSlider.value = 10;
+        nightVotingSlider.value = 10;
+        dayDiscussionSlider.value = 10;
+        dayVotingSlider.value = 10;
 
         // Обновляем текстовые поля значений (если они заданы)
         UpdateSliderValueTexts();

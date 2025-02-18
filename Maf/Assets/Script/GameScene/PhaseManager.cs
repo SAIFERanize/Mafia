@@ -30,6 +30,8 @@ public class PhaseManager : MonoBehaviour
 
     private Text timerText; 
     public VotingManager votingManager; 
+    
+    public CommissarRoleController commissarRoleController;
 
     void Start()
     {
@@ -93,6 +95,11 @@ public class PhaseManager : MonoBehaviour
         {
             case GamePhase.NightDiscussion:
                 SetPhase(GamePhase.NightVoting);
+                ShowCommissarPanelIfNeeded();
+                if (commissarRoleController != null)
+                {
+                commissarRoleController.ResetCheck();
+                }
                 votingManager?.ShowVotingPanel();
                 break;
 
@@ -139,5 +146,23 @@ public class PhaseManager : MonoBehaviour
             timerText.color = secondsLeft <= 5 ? Color.red : Color.white;
         }
     }
+       public void ShowCommissarPanelIfNeeded()
+{
+    // Проверяем, есть ли в сцене CommissarRoleController
+    CommissarRoleController commissar = FindFirstObjectByType<CommissarRoleController>();
+    if (commissar == null) return;
+
+    // Проверяем, что локальный игрок – комиссар
+    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
+    {
+        if (roleObj.ToString().ToLower() == "commissar")
+        {
+            // Показываем панель проверки
+            commissar.ShowCommissionerPanel();
+        }
+    }
+}
+
+
 }
     

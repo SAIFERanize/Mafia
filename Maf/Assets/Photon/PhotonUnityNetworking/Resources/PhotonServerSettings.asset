@@ -43,6 +43,7 @@ MonoBehaviour:
   - RPC_RegisterVote
   - RPC_KillPlayer
   - RPC_AddMafiaMessage
+  - RPC_RevealRole
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 1
