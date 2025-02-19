@@ -17,7 +17,7 @@ public class GameManager : MonoBehaviourPunCallbacks
     public PlayersPanelController playersPanelController;
 
     private void Start()
-    {
+    {   
         PhotonNetwork.AutomaticallySyncScene = true;
         UpdateRoomInfo();
 

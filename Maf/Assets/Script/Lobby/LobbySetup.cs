@@ -124,10 +124,18 @@ public class LobbySetup : MonoBehaviourPunCallbacks
     }
 
     public override void OnCreatedRoom()
+{
+    Debug.Log("Комната создана!");
+
+    // Если по какой-то причине создатель комнаты не является мастером, принудительно назначаем его мастером.
+    if (!PhotonNetwork.IsMasterClient)
     {
-        statusText.text = "Комната создана!";
-        PhotonNetwork.LoadLevel("LobbyScene");
+        PhotonNetwork.SetMasterClient(PhotonNetwork.LocalPlayer);
     }
+    
+    PhotonNetwork.LoadLevel("LobbyScene");
+}
+
 
     public override void OnCreateRoomFailed(short returnCode, string message)
     {

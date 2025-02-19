@@ -61,84 +61,85 @@ public class GameChat : MonoBehaviourPun
     /// <summary>
     /// Отправляет сообщение в чат.
     /// </summary>
-    public void SendMessage()
+   public void SendMessage()
+{
+    if (!IsChatAllowed())
     {
-        if (!IsChatAllowed())
+        Debug.Log("Чат недоступен в текущей фазе!");
+        return;
+    }
+
+    if (!string.IsNullOrWhiteSpace(chatInputField.text))
+    {
+        // Формируем сообщение
+        string message = PhotonNetwork.NickName + ": " + chatInputField.text;
+
+        // Отправляем сообщение всем игрокам, но фильтруем его в зависимости от фазы и роли
+        if (phaseManager.CurrentPhase == GamePhase.NightDiscussion)
         {
-            Debug.Log("Чат недоступен в текущей фазе!");
-            return;
+            // Если мафия, то фильтруем только для мафии
+            if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object role) &&
+                role.ToString().ToLower() == "mafia")
+            {
+                photonView.RPC("RPC_AddMafiaMessage", RpcTarget.All, PhotonNetwork.NickName, message);
+            }
         }
-
-        if (!string.IsNullOrWhiteSpace(chatInputField.text))
+        else
         {
-            // Формируем сообщение
-            string message = PhotonNetwork.NickName + ": " + chatInputField.text;
-
-            // Отправляем сообщение всем игрокам
+            // Если не ночь, просто отправляем в общий чат
             photonView.RPC("RPC_AddMessage", RpcTarget.All, message, " ");
-
-            // Очищаем поле ввода
-            chatInputField.text = "";
         }
-    }
 
-    /// <summary>
-    /// RPC-метод для добавления сообщения в чат.
-    /// </summary>
-    /// <param name="message">Текст сообщения.</param>
-    /// <param name="senderRole">Роль отправителя.</param>
-    /// <param name="info">Информация о сообщении (автоматически передаётся Photon).</param>
-    [PunRPC]
-    public void RPC_AddMessage(string message, string senderRole, PhotonMessageInfo info)
+        // Очищаем поле ввода
+        chatInputField.text = "";
+    }
+}
+ [PunRPC]
+public void RPC_AddMafiaMessage(string sender, string message, PhotonMessageInfo info)
+{
+    // Если локальный игрок не мафия, то не видит сообщение
+    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object role) && role.ToString().ToLower() != "mafia")
     {
-        // Если роль отправителя не передана, пытаемся получить её из CustomProperties
-        if (string.IsNullOrEmpty(senderRole))
-        {
-            senderRole = "civilian";
-            if (info.Sender.CustomProperties.TryGetValue("role", out object roleObj))
-                senderRole = roleObj.ToString().ToLower();
-        }
-
-        // Если ночь, скрываем сообщения мафии от мирных
-        if (phaseManager.CurrentPhase == GamePhase.NightDiscussion 
-            || phaseManager.CurrentPhase == GamePhase.NightVoting)
-        {
-            // Роль локального игрока (по умолчанию "civilian")
-            string localRole = "civilian";
-            if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object localRoleObj))
-                localRole = localRoleObj.ToString().ToLower();
-
-            // Если сообщение – о голосовании
-            if (message.Contains("проголосовал за"))
-            {
-                // Мафия → скрываем от мирных
-                if (senderRole == "mafia" && localRole != "mafia")
-                {
-                    Debug.Log($"[Mafia Vote Hidden] {message}");
-                    return;
-                }
-            }
-            // Иначе просто ночной чат мафии
-            else
-            {
-                if (senderRole == "mafia" && localRole != "mafia")
-                {
-                    Debug.Log($"[Mafia Message Hidden] {message}");
-                    return;
-                }
-            }
-        }
-
-        // Если сообщение уже есть в истории, не добавляем его повторно
-        if (chatHistoryText.text.Contains(message))
-            return;
-
-        // Добавляем сообщение в чат
-        chatHistoryText.text += message + "\n";
-
-        // Обновляем UI чата
-        LayoutRebuilder.ForceRebuildLayoutImmediate(chatHistoryText.rectTransform);
-        Canvas.ForceUpdateCanvases();
-        scrollRect.verticalNormalizedPosition = 0f;
+        return;
     }
+
+    // Мафия видит сообщение
+    Debug.Log($"[Mafia Chat] {sender}: {message}");
+    chatHistoryText.text += $"{sender}: {message}\n";
+}
+
+[PunRPC]
+public void RPC_AddMessage(string message, string senderRole, PhotonMessageInfo info)
+{
+    // Если текущая фаза — ночь (обсуждение или голосование)
+    if (phaseManager.CurrentPhase == GamePhase.NightDiscussion ||
+        phaseManager.CurrentPhase == GamePhase.NightVoting)
+    {
+        // Получаем роль локального игрока (по умолчанию "civilian")
+        string localRole = "civilian";
+        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object localRoleObj))
+            localRole = localRoleObj.ToString().ToLower();
+
+        // Если отправитель — мафия, а локальный игрок не мафия, скрываем сообщение
+        if (senderRole == "mafia" && localRole != "mafia")
+        {
+            // Дополнительно можно логировать скрытые сообщения
+            Debug.Log($"[Mafia Message Hidden] {message}");
+            return;
+        }
+    }
+
+    // Если сообщение уже содержится в истории, не добавляем его повторно
+    if (chatHistoryText.text.Contains(message))
+        return;
+
+    // Добавляем сообщение в историю чата
+    chatHistoryText.text += message + "\n";
+
+    // Обновляем UI чата
+    LayoutRebuilder.ForceRebuildLayoutImmediate(chatHistoryText.rectTransform);
+    Canvas.ForceUpdateCanvases();
+    scrollRect.verticalNormalizedPosition = 0f;
+}
+
 }
