@@ -16,6 +16,8 @@ public class GameManager : MonoBehaviourPunCallbacks
     [Header("Ссылка на панель игроков (не забудь мудак)")]
     public PlayersPanelController playersPanelController;
     public RoleDescriptionPanel roleDescriptionPanel;
+    public DeathWindow deathWindow;
+    public VictoryManager victoryManager;
 
 
     private void Start()
@@ -98,15 +100,14 @@ public class GameManager : MonoBehaviourPunCallbacks
     }
 
     // Обработка обновления свойств игрока
-   public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
+  public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
 {
-    // Если среди изменённых свойств есть ключ "role"
+    // Проверка изменения свойства "role" (уже было)
     if (changedProps.ContainsKey("role"))
     {
         string newRole = targetPlayer.CustomProperties["role"].ToString();
         Debug.Log($"[Role Update] {targetPlayer.NickName} получил роль {newRole}");
 
-        // Если обновление касается локального игрока, обновляем его UI.
         if (targetPlayer.IsLocal)
         {
             playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + newRole + ")";
@@ -115,17 +116,33 @@ public class GameManager : MonoBehaviourPunCallbacks
                 roleInfoText.text = "Ваша роль: " + newRole;
             }
 
-            // Получаем описание для новой роли.
             string description = GetRoleDescription(newRole);
-
-            // Отображаем панель с новым описанием.
             if (roleDescriptionPanel != null)
             {
                 roleDescriptionPanel.ShowPanel(description);
             }
         }
     }
+
+    // Проверка изменения свойства "isDead"
+    if (changedProps.ContainsKey("isDead"))
+    {
+        // Получаем значение свойства. Предполагаем, что значение хранится как bool.
+        bool isDead = (bool)targetPlayer.CustomProperties["isDead"];
+        Debug.Log($"[Death Update] {targetPlayer.NickName} isDead = {isDead}");
+
+        // Если обновление касается локального игрока и флаг установлен в true
+        if (targetPlayer.IsLocal && isDead)
+        {
+            // Вызываем окно смерти, передавая имя игрока для отображения сообщения
+            if (deathWindow != null)
+            {
+                deathWindow.ShowDeathMessage(PhotonNetwork.NickName);
+            }
+        }
+    }
 }
+
 public string GetRoleDescription(string role)
 {
     // Приводим роль к нижнему регистру для универсальности.
@@ -141,10 +158,9 @@ public string GetRoleDescription(string role)
     }
 }
 
-
-   [PunRPC]
-    [System.Obsolete]
-    public void RPC_KillPlayer(string playerName)
+[PunRPC]
+[System.Obsolete]
+public void RPC_KillPlayer(string playerName)
 {
     foreach (Player player in PhotonNetwork.PlayerList)
     {
@@ -174,8 +190,13 @@ public string GetRoleDescription(string role)
         }
     }
 
+    // Обновляем UI после убийства
     if (playersPanelController != null)
         playersPanelController.UpdatePlayersList();
+
+    // Проверяем победу после убийства
+    if (victoryManager != null)
+        victoryManager.CheckVictoryConditions();
 }
 
 

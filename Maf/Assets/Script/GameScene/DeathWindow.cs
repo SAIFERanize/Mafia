@@ -11,20 +11,22 @@ public class DeathWindow : MonoBehaviour
 
     private void Start()
     {
+        // Назначаем обработчик нажатия кнопки закрытия
         closeButton.onClick.AddListener(CloseWindow);
-        deathWindowPanel.SetActive(false);  // Скрываем окно по умолчанию
+        // Скрываем окно по умолчанию
+        deathWindowPanel.SetActive(false);
     }
 
     // Метод для отображения окна смерти
     public void ShowDeathMessage(string playerName)
     {
-        deathMessageText.text = $"К сожалению дорогой {playerName}, вы были убиты, теперь вам остается только наблюдать на всем и надеятся что ваши товарищи смогут отомстить!";
-        deathWindowPanel.SetActive(true);  // Показываем окно
+        deathMessageText.text = $"К сожалению, дорогой {playerName}, вы были убиты. Теперь вам остается только наблюдать за игрой и надеяться, что ваши товарищи отомстят!";
+        deathWindowPanel.SetActive(true);
     }
 
-    // Метод для закрытия окна
+    // Метод для закрытия окна смерти
     private void CloseWindow()
     {
-        deathWindowPanel.SetActive(false);  // Скрываем окно
+        deathWindowPanel.SetActive(false);
     }
 }

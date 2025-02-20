@@ -192,52 +192,59 @@ public void RPC_RegisterVote(string votingPlayer, string votedPlayer, string vot
         }
         // Метод, который вызывается при завершении фазы голосования.
         // Здесь определяется игрок с максимальным числом голосов, выводится сообщение об исключении и панель скрывается.
-      public void EndVoting()
+     public void EndVoting()
 {
-    // Находим, какое максимальное число голосов набрано
-    int maxVotes = -1;
-    foreach (var pair in votes)
+    // 1. Находим максимальное число голосов, набранных за какого-либо игрока.
+    int maxVotes = 0;
+    foreach (var vote in votes.Values)
     {
-        if (pair.Value > maxVotes)
-            maxVotes = pair.Value;
+        if (vote > maxVotes)
+            maxVotes = vote;
     }
 
-    // Если никто не набрал голосов (maxVotes <= 0) – никто не умирает
-    if (maxVotes <= 0)
+    // 2. Если максимальное число голосов равно 0, значит никто не получил голосов.
+    if (maxVotes == 0)
     {
-        // Вызов RPC_AddMessage с двумя строковыми параметрами
+        // Сообщаем в чат, что голосование завершилось без результатов.
         gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
             "Голосование завершилось без голосов.", "");
+        
+        // Скрываем панель голосования.
+        HideVotingPanel();
+        return;
+    }
+
+    // 3. Собираем всех игроков, у которых число голосов равно maxVotes.
+    List<string> topVotedPlayers = new List<string>();
+    foreach (var pair in votes)
+    {
+        if (pair.Value == maxVotes)
+            topVotedPlayers.Add(pair.Key);
+    }
+
+    // 4. Если несколько игроков набрали максимальное количество голосов,
+    // выбираем случайного кандидата на устранение.
+    int randomIndex = Random.Range(0, topVotedPlayers.Count);
+    string eliminatedPlayer = topVotedPlayers[randomIndex];
+
+    // 5. Отправляем сообщение в чат о том, что выбранный игрок покидает наш мир.
+    gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
+        $"{eliminatedPlayer} покинул наш мир", "");
+
+    // 6. Вызываем RPC-метод RPC_KillPlayer из GameManager, чтобы пометить игрока как убитого.
+    // Здесь используется ссылка на менеджер игры, чтобы не искать его заново.
+    if (gameManager != null)
+    {
+        gameManager.photonView.RPC("RPC_KillPlayer", RpcTarget.All, eliminatedPlayer);
     }
     else
     {
-        // Собираем всех игроков, у кого число голосов == maxVotes
-        List<string> topVotedPlayers = new List<string>();
-        foreach (var pair in votes)
-        {
-            if (pair.Value == maxVotes)
-                topVotedPlayers.Add(pair.Key);
-        }
-
-        // Если в topVotedPlayers больше одного игрока, будет жребий
-        // Случайно выбираем одного из списка
-        int randomIndex = Random.Range(0, topVotedPlayers.Count);
-        string eliminatedPlayer = topVotedPlayers[randomIndex];
-
-        // Отправляем сообщение в чат
-        gameChat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
-            $"{eliminatedPlayer} покинул наш мир", "");
-
-        // Помечаем выбранного игрока убитым
-        GameManager gm = FindAnyObjectByType<GameManager>();
-        if (gm != null)
-        {
-            gm.photonView.RPC("RPC_KillPlayer", RpcTarget.All, eliminatedPlayer);
-        }
+        Debug.LogWarning("Ссылка на GameManager не установлена в VotingManager!");
     }
 
-    // Скрываем панель голосования
+    // 7. Скрываем панель голосования после завершения процедуры.
     HideVotingPanel();
 }
+
 
 }

@@ -22,7 +22,6 @@ public class PhaseManager : MonoBehaviour
     public float nightDiscussionTime;
     public float nightVotingTime;
     public float dayDiscussionTime;
-
     public float dayVotingTime;
 
     public GamePhase CurrentPhase { get; private set; }
@@ -30,8 +29,10 @@ public class PhaseManager : MonoBehaviour
 
     private Text timerText; 
     public VotingManager votingManager; 
-    
     public CommissarRoleController commissarRoleController;
+
+    // Новый флаг для остановки таймера после победы
+    private bool gameEnded = false;
 
     void Start()
     {
@@ -59,6 +60,9 @@ public class PhaseManager : MonoBehaviour
 
     void Update()
     {
+        if (gameEnded)
+            return; // Если игра окончена, таймер больше не обновляется
+
         CurrentTime -= Time.deltaTime;
         if (CurrentTime <= 0f)
         {
@@ -89,7 +93,7 @@ public class PhaseManager : MonoBehaviour
     }
 
     // Переход к следующей фазе по кругу
-     public void AdvancePhase()
+    public void AdvancePhase()
     {
         switch (CurrentPhase)
         {
@@ -98,7 +102,7 @@ public class PhaseManager : MonoBehaviour
                 ShowCommissarPanelIfNeeded();
                 if (commissarRoleController != null)
                 {
-                commissarRoleController.ResetCheck();
+                    commissarRoleController.ResetCheck();
                 }
                 votingManager?.ShowVotingPanel();
                 break;
@@ -146,22 +150,24 @@ public class PhaseManager : MonoBehaviour
             timerText.color = secondsLeft <= 5 ? Color.red : Color.white;
         }
     }
-       public void ShowCommissarPanelIfNeeded()
-{
-    // Проверяем, есть ли в сцене CommissarRoleController
-    CommissarRoleController commissar = FindFirstObjectByType<CommissarRoleController>();
-    if (commissar == null) return;
 
-    // Проверяем, что локальный игрок – комиссар
-    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
+    public void ShowCommissarPanelIfNeeded()
     {
-        if (roleObj.ToString().ToLower() == "commissar")
+        CommissarRoleController commissar = FindFirstObjectByType<CommissarRoleController>();
+        if (commissar == null) return;
+        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
         {
-            // Показываем панель проверки
-            commissar.ShowCommissionerPanel();
+            if (roleObj.ToString().ToLower() == "commissar")
+            {
+                commissar.ShowCommissionerPanel();
+            }
         }
     }
-}
 
+    // Метод для остановки таймера при достижении победных условий
+    public void StopTimer()
+    {
+        gameEnded = true;
+        Debug.Log("Таймер остановлен. Игра окончена.");
+    }
 }
-    
