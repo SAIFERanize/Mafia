@@ -175,7 +175,6 @@ MonoBehaviour:
   nightVotingTime: 20
   dayDiscussionTime: 30
   dayVotingTime: 20
-  timerText: {fileID: 618348554}
   votingManager: {fileID: 1303821099}
   commissarRoleController: {fileID: 543201024}
 --- !u!4 &20307381
@@ -2500,7 +2499,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 827978230}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 913a698ada15c874bb088c770262223e, type: 3}
   m_Name: 
@@ -3333,7 +3332,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.00005670299}
+  m_AnchoredPosition: {x: 0, y: -0.000004888756}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1159378716
@@ -4417,9 +4416,8 @@ MonoBehaviour:
   playerNameText: {fileID: 764086253}
   roleInfoText: {fileID: 1876426555}
   exitButton: {fileID: 415795634}
-  roleDescriptionPanel: {fileID: 851022946}
   playersPanelController: {fileID: 872581638}
-  gameStartDelay: 5
+  roleDescriptionPanel: {fileID: 851022946}
 --- !u!4 &1472892298
 Transform:
   m_ObjectHideFlags: 0

@@ -135,7 +135,7 @@ public class LobbySetup : MonoBehaviourPunCallbacks
     
     PhotonNetwork.LoadLevel("LobbyScene");
 }
-
+        
 
     public override void OnCreateRoomFailed(short returnCode, string message)
     {

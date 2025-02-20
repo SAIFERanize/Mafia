@@ -15,6 +15,8 @@ public class GameManager : MonoBehaviourPunCallbacks
 
     [Header("Ссылка на панель игроков (не забудь мудак)")]
     public PlayersPanelController playersPanelController;
+    public RoleDescriptionPanel roleDescriptionPanel;
+
 
     private void Start()
     {   
@@ -96,22 +98,49 @@ public class GameManager : MonoBehaviourPunCallbacks
     }
 
     // Обработка обновления свойств игрока
-    public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
+   public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
+{
+    // Если среди изменённых свойств есть ключ "role"
+    if (changedProps.ContainsKey("role"))
     {
-        if (changedProps.ContainsKey("role"))
-        {
-            string newRole = targetPlayer.CustomProperties["role"].ToString();
-            Debug.Log($"[Role Update] {targetPlayer.NickName} получил роль {newRole}");
+        string newRole = targetPlayer.CustomProperties["role"].ToString();
+        Debug.Log($"[Role Update] {targetPlayer.NickName} получил роль {newRole}");
 
-            if (targetPlayer.IsLocal)
+        // Если обновление касается локального игрока, обновляем его UI.
+        if (targetPlayer.IsLocal)
+        {
+            playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + newRole + ")";
+            if (roleInfoText != null)
             {
-                // Обновляем UI для локального игрока
-                playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + newRole + ")";
-                if (roleInfoText != null)
-                    roleInfoText.text = "Ваша роль: " + newRole;
+                roleInfoText.text = "Ваша роль: " + newRole;
+            }
+
+            // Получаем описание для новой роли.
+            string description = GetRoleDescription(newRole);
+
+            // Отображаем панель с новым описанием.
+            if (roleDescriptionPanel != null)
+            {
+                roleDescriptionPanel.ShowPanel(description);
             }
         }
     }
+}
+public string GetRoleDescription(string role)
+{
+    // Приводим роль к нижнему регистру для универсальности.
+    switch (role.ToLower())
+    {
+        case "mafia":
+            return "Вы - мафия. Ваша цель — устранить всех мирных жителей, оставаясь в тени. Будьте хитры и расчетливы.";
+        case "commissar":
+            return "Вы - комиссар. Используйте свои аналитические способности, чтобы выявить мафию и защитить невинных.";
+        case "civilian":
+        default:
+            return "Вы - мирный житель. Ваша задача — выжить и помочь разоблачить мафию.";
+    }
+}
+
 
    [PunRPC]
     [System.Obsolete]
@@ -150,33 +179,46 @@ public class GameManager : MonoBehaviourPunCallbacks
 }
 
 
-    public override void OnJoinedRoom()
+   public override void OnJoinedRoom()
+{
+    // Если роль уже назначена, получаем её из кастомных свойств.
+    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
     {
-        // Если роль уже установлена, обновляем UI локального игрока
-        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
+        string roleText = roleObj.ToString();
+        Debug.Log($"[OnJoinedRoom] {PhotonNetwork.LocalPlayer.NickName} имеет роль: {roleText}");
+
+        // Обновляем UI с именем и ролью.
+        playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + roleText + ")";
+        if (roleInfoText != null)
         {
-            string roleText = roleObj.ToString();
-            Debug.Log($"[OnJoinedRoom] {PhotonNetwork.LocalPlayer.NickName} имеет роль: {roleText}");
-            playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + roleText + ")";
-            if (roleInfoText != null)
-            {
-                roleInfoText.text = "Ваша роль: " + roleText;
-            }
+            roleInfoText.text = "Ваша роль: " + roleText;
         }
-        else
+
+        // Получаем интересное описание для роли.
+        string description = GetRoleDescription(roleText);
+
+        // Если панель описания роли подключена, отображаем описание.
+        if (roleDescriptionPanel != null)
         {
-            Debug.LogWarning("[OnJoinedRoom] Роль не установлена, задаём civilian по умолчанию");
-            playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (civilian)";
-            if (roleInfoText != null)
-            {
-                roleInfoText.text = "Ваша роль: civilian";
-            }
+            roleDescriptionPanel.ShowPanel(description);
         }
     }
+    else
+    {
+        // Если роль не установлена, назначаем значение по умолчанию.
+        Debug.LogWarning("[OnJoinedRoom] Роль не установлена, задаём civilian по умолчанию");
+        playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (civilian)";
+        if (roleInfoText != null)
+        {
+            roleInfoText.text = "Ваша роль: civilian";
+        }
+    }
+}
+
 
     public void ExitGame()
     {
         PhotonNetwork.LeaveRoom();
         PhotonNetwork.LoadLevel("RoomList");
     }
-}
+} 

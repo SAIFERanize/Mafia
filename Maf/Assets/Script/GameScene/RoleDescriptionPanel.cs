@@ -16,14 +16,32 @@ public class RoleDescriptionPanel : MonoBehaviour
 
     // Метод для отображения панели с нужным описанием роли
     public void ShowPanel(string roleDescription)
-    {
-        descriptionText.text = roleDescription;
-        gameObject.SetActive(true);
-    }
+{
+    // Устанавливаем текст описания роли, полученный в параметре.
+    descriptionText.text = roleDescription;
+    // Делаем панель видимой, активируя объект.
+    gameObject.SetActive(true);
+}
 
-    // Метод для скрытия панели
-    public void HidePanel()
+public void HidePanel()
+{
+    // Скрываем панель, деактивируя объект.
+    gameObject.SetActive(false);
+}
+// Возвращает описание для заданной роли.
+public string GetRoleDescription(string role)
+{
+    // Приводим роль к нижнему регистру для универсальности.
+    switch (role.ToLower())
     {
-        gameObject.SetActive(false);
+        case "mafia":
+            return "Вы - мафия. Ваша цель — устранить всех мирных жителей, оставаясь в тени. Будьте хитры и расчетливы.";
+        case "commissar":
+            return "Вы - комиссар. Используйте свои аналитические способности, чтобы выявить мафию и защитить невинных.";
+        case "civilian":
+        default:
+            return "Вы - мирный житель. Ваша задача — выжить и помочь разоблачить мафию.";
     }
+}
+
 }
