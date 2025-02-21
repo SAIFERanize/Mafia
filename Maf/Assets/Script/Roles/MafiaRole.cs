@@ -30,6 +30,6 @@ public class MafiaRole : MonoBehaviourPun
 
         // Только для мафии – выводим сообщение в UI или лог
         Debug.Log($"[Mafia Chat] {sender}: {message}");
-        // Здесь можно добавить логику для отображения сообщения в специальном чате для мафии
+        
     }
 }

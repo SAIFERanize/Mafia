@@ -9,22 +9,53 @@ public class CommissarRoleController : MonoBehaviourPun
     [Header("UI References")]
     public GameObject votingPanel;         // Панель, которую переиспользуем для проверки
     public GameObject votingEntryPrefab;   // Префаб элемента (с кнопкой и текстом)
-    public Transform panelContent;         // Контейнер, куда добавляются элементы (например, с Vertical Layout Group)
+    public Transform panelContent;         // Контейнер для элементов
+
+    [Header("Ссылка на PhaseManager")]
+    public PhaseManager phaseManager;      // Задайте через инспектор или найдите в Start()
 
     private bool hasChecked = false;
 
     private void Start()
     {
-        // Если локальный игрок не комиссар, отключаем этот контроллер и прячем панель
-        if (!IsLocalCommissioner())
+        // Если PhaseManager не задан через инспектор – ищем его
+        if (phaseManager == null)
+        {
+            phaseManager = FindAnyObjectByType<PhaseManager>();
+        }
+
+        // Если локальный игрок не комиссар или уже мёртв – отключаем контроллер и прячем панель
+        if (!IsLocalCommissioner() || IsLocalPlayerDead())
         {
             enabled = false;
             if (votingPanel) votingPanel.SetActive(false);
         }
     }
 
+    private void Update()
+    {
+        // Если текущая фаза не NightVoting, скрываем комиссарскую панель (на случай, если проверка не была выполнена)
+        if (phaseManager != null && phaseManager.CurrentPhase != GamePhase.NightVoting)
+        {
+            if (votingPanel != null && votingPanel.activeSelf)
+                votingPanel.SetActive(false);
+        }
+    }
+
     /// <summary>
-    /// Проверяем, является ли локальный игрок комиссаром.
+    /// Проверяет, мёртв ли локальный игрок.
+    /// </summary>
+    private bool IsLocalPlayerDead()
+    {
+        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("isDead", out object isDeadObj))
+        {
+            return (bool)isDeadObj;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Проверяет, является ли локальный игрок комиссаром.
     /// </summary>
     private bool IsLocalCommissioner()
     {
@@ -36,26 +67,28 @@ public class CommissarRoleController : MonoBehaviourPun
     }
 
     /// <summary>
-    /// Показывает комиссарскую панель проверки. Вызывается, например, в ночной фазе голосования.
+    /// Показывает комиссарскую панель проверки (если комиссар жив и ещё не проверял).
+    /// Вызывается, например, в ночной фазе голосования.
     /// </summary>
     public void ShowCommissionerPanel()
     {
-        if (hasChecked) return;
+        // Если комиссар уже проверял или мёртв, не показываем панель
+        if (hasChecked || IsLocalPlayerDead()) return;
 
         if (votingPanel != null)
             votingPanel.SetActive(true);
 
-        // Очищаем предыдущие элементы в контейнере
+        // Очищаем предыдущие элементы
         foreach (Transform child in panelContent)
         {
             Destroy(child.gameObject);
         }
 
-        // Для каждого живого игрока (кроме комиссара) создаём элемент проверки
+        // Создаем элементы для каждого живого игрока (кроме комиссара)
         foreach (Player player in PhotonNetwork.PlayerList)
         {
             if (player.NickName == PhotonNetwork.LocalPlayer.NickName)
-                continue; // пропускаем самого комиссара
+                continue; // пропускаем комиссара
 
             bool isDead = player.CustomProperties.ContainsKey("isDead") && (bool)player.CustomProperties["isDead"];
             if (!isDead)
@@ -64,14 +97,14 @@ public class CommissarRoleController : MonoBehaviourPun
                 VotingEntry entry = entryObj.GetComponent<VotingEntry>();
                 if (entry != null)
                 {
-                    // Используем специальный метод настройки для комиссара
                     entry.SetupForCommission(player.NickName, isDead, OnCommissionerCheck);
                 }
             }
         }
     }
+
     /// <summary>
-    /// Callback-функция для обработки выбора игрока комиссаром.
+    /// Callback-функция для обработки выбора комиссаром.
     /// </summary>
     /// <param name="targetPlayerName">Имя выбранного игрока.</param>
     private void OnCommissionerCheck(string targetPlayerName)
@@ -79,18 +112,17 @@ public class CommissarRoleController : MonoBehaviourPun
         if (hasChecked) return;
         hasChecked = true;
 
-        // Закрываем панель после выбора
+        // Скрываем панель после выбора
         if (votingPanel != null)
             votingPanel.SetActive(false);
 
-        // Вызываем RPC, чтобы объявить роль выбранного игрока
+        // Вызываем RPC, чтобы объявить роль выбранного игрока на всех клиентах
         photonView.RPC("RPC_RevealRole", RpcTarget.All, targetPlayerName, PhotonNetwork.NickName);
     }
 
     [PunRPC]
     private void RPC_RevealRole(string targetPlayerName, string commissarName, PhotonMessageInfo info)
     {
-        // Определяем роль выбранного игрока
         string foundRole = "неизвестна";
         foreach (Player p in PhotonNetwork.PlayerList)
         {
@@ -102,19 +134,24 @@ public class CommissarRoleController : MonoBehaviourPun
             }
         }
 
-        // Формируем сообщение для общего чата
         string message = $"Оглашение комиссара: игрок {targetPlayerName} — {foundRole}";
 
-        // Отправляем сообщение через GameChat (предполагается, что такой скрипт уже есть)
-       GameChat chat = FindFirstObjectByType<GameChat>();
+        GameChat chat = FindAnyObjectByType<GameChat>();
         if (chat != null)
         {
             chat.photonView.RPC("RPC_AddMessage", RpcTarget.All, message, " ");
         }
     }
+
     public void ResetCheck()
     {
-      hasChecked = false;
+        hasChecked = false;
     }
-
+    
+    // Дополнительный метод, который можно вызвать извне для скрытия панели
+    public void HideCommissionerPanel()
+    {
+        if (votingPanel != null)
+            votingPanel.SetActive(false);
+    }
 }

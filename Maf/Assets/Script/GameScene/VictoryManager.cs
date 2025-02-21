@@ -4,58 +4,65 @@ using Photon.Realtime;
 
 public class VictoryManager : MonoBehaviourPun
 {
-    [Header("Ссылка на PhaseManager для остановки таймера")]
-    public PhaseManager phaseManager; // Привяжите в инспекторе объект с PhaseManager
+    [Header("Ссылки на менеджеры и UI")]
+    public PhaseManager phaseManager;      // Для остановки таймера и смены фазы
+    public VictoryPanel victoryPanel;      // Для отображения окна победы
 
-    // Метод для проверки условий победы.
-    // Если все мафии убиты – побеждают мирные,
-    // если все мирные (civilian и commissar) убиты – побеждает мафия.
+    // Флаг, чтобы победа фиксировалась только один раз
+    private bool victoryAssigned = false;
+
+    // Метод проверки условий победы – вызывается мастером после каждого убийства
     public void CheckVictoryConditions()
+{
+    if (victoryAssigned)
+        return;
+
+    int mafiaAlive = 0;
+    int civiliansAlive = 0;
+
+    foreach (Player player in PhotonNetwork.PlayerList)
     {
-        int mafiaAlive = 0;
-        int civiliansAlive = 0;
+        string role = "civilian";
+        if (player.CustomProperties.TryGetValue("role", out object roleObj))
+            role = roleObj.ToString().ToLower();
 
-        // Перебираем всех игроков в комнате.
-        foreach (Player player in PhotonNetwork.PlayerList)
+        bool isDead = false;
+        if (player.CustomProperties.TryGetValue("isDead", out object isDeadObj))
+            isDead = (bool)isDeadObj;
+
+        if (!isDead)
         {
-            // Получаем роль игрока. Если роль не задана, считаем его гражданским.
-            string role = "civilian";
-            if (player.CustomProperties.TryGetValue("role", out object roleObj))
-            {
-                role = roleObj.ToString().ToLower();
-            }
-
-            // Проверяем, мёртв ли игрок.
-            // Если свойство "isDead" не задано – считаем, что игрок жив.
-            bool isDead = false;
-            if (player.CustomProperties.TryGetValue("isDead", out object isDeadObj))
-            {
-                isDead = (bool)isDeadObj;
-            }
-
-            // Если игрок живой – увеличиваем счётчик соответствующей стороны.
-            if (!isDead)
-            {
-                if (role == "mafia")
-                    mafiaAlive++;
-                else
-                    civiliansAlive++;
-            }
-        }
-
-        // Если все мафии убиты, мирные побеждают.
-        if (mafiaAlive == 0)
-        {
-            Debug.Log("[VictoryManager] Победа мирных! Все мафии убиты.");
-            if (phaseManager != null)
-                phaseManager.StopTimer();
-        }
-        // Если все гражданские (мирные) убиты, побеждает мафия.
-        else if (civiliansAlive == 0)
-        {
-            Debug.Log("[VictoryManager] Победа мафии! Все мирные убиты.");
-            if (phaseManager != null)
-                phaseManager.StopTimer();
+            if (role == "mafia")
+                mafiaAlive++;
+            else
+                civiliansAlive++;
         }
     }
+
+    if (mafiaAlive == 0)
+    {
+        victoryAssigned = true;
+        photonView.RPC("RPC_ShowVictoryMessage", RpcTarget.All, "Победа мирных! Справедливость восторжествовала.");
+    }
+    else if (civiliansAlive == 0)
+    {
+        victoryAssigned = true;
+        photonView.RPC("RPC_ShowVictoryMessage", RpcTarget.All, "Победа мафии! Темные силы захватили город.");
+    }
+}
+
+[PunRPC]
+public void RPC_ShowVictoryMessage(string victoryMessage)
+{
+    if (victoryPanel != null)
+        victoryPanel.ShowVictoryMessage(victoryMessage);
+
+    // Останавливаем таймер и переключаем фазу на день
+    if (phaseManager != null)
+    {
+        phaseManager.StopTimer();
+        phaseManager.SetPhase(GamePhase.DayDiscussion);
+    }
+}
+
 }

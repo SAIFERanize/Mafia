@@ -72,25 +72,31 @@ public class PhaseManager : MonoBehaviour
     }
 
     // Устанавливаем фазу и задаём соответствующее время
-    public void SetPhase(GamePhase newPhase)
+   public void SetPhase(GamePhase newPhase)
+{
+    CurrentPhase = newPhase;
+    switch (newPhase)
     {
-        CurrentPhase = newPhase;
-        switch (newPhase)
-        {
-            case GamePhase.NightDiscussion:
-                CurrentTime = nightDiscussionTime;
-                break;
-            case GamePhase.NightVoting:
-                CurrentTime = nightVotingTime;
-                break;
-            case GamePhase.DayDiscussion:
-                CurrentTime = dayDiscussionTime;
-                break;
-            case GamePhase.DayVoting:
-                CurrentTime = dayVotingTime;
-                break;
-        }
+        case GamePhase.NightDiscussion:
+            CurrentTime = nightDiscussionTime;
+            break;
+        case GamePhase.NightVoting:
+            CurrentTime = nightVotingTime;
+            break;
+        case GamePhase.DayDiscussion:
+            CurrentTime = dayDiscussionTime;
+            break;
+        case GamePhase.DayVoting:
+            CurrentTime = dayVotingTime;
+            break;
     }
+    
+    // Если новая фаза не NightVoting, скрываем комиссарскую панель
+    if (newPhase != GamePhase.NightVoting && commissarRoleController != null)
+    {
+        commissarRoleController.HideCommissionerPanel();
+    }
+}
 
     // Переход к следующей фазе по кругу
     public void AdvancePhase()

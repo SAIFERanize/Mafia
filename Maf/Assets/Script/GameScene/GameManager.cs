@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using TMPro;
 using Photon.Pun;
 using Photon.Realtime;
+using ExitGames.Client.Photon;
+
 
 public class GameManager : MonoBehaviourPunCallbacks
 {
@@ -159,7 +161,6 @@ public string GetRoleDescription(string role)
 }
 
 [PunRPC]
-[System.Obsolete]
 public void RPC_KillPlayer(string playerName)
 {
     foreach (Player player in PhotonNetwork.PlayerList)
@@ -173,31 +174,32 @@ public void RPC_KillPlayer(string playerName)
             };
             player.SetCustomProperties(props);
 
-            // Проверяем, не комиссар ли
+            // Если убит комиссар, объявляем это в чате
             if (player.CustomProperties.TryGetValue("role", out object roleObj))
             {
                 if (roleObj.ToString().ToLower() == "commissar")
                 {
-                    // Пишем в чат
-                    GameChat chat = FindObjectOfType<GameChat>();
+                    GameChat chat = FindAnyObjectByType<GameChat>();
                     if (chat != null)
                     {
-                        chat.photonView.RPC("RPC_AddMessage", RpcTarget.All, "Внимание! комиссар мертв!", " ");
+                        chat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
+                            "Внимание! Комиссар мертв!", " ");
                     }
                 }
             }
-            break;
+            break; // прекращаем цикл после нахождения игрока
         }
     }
 
-    // Обновляем UI после убийства
     if (playersPanelController != null)
         playersPanelController.UpdatePlayersList();
 
-    // Проверяем победу после убийства
-    if (victoryManager != null)
+    // Если мы мастер, вызываем проверку победы (чтобы не было повторных вызовов)
+    if (PhotonNetwork.IsMasterClient && victoryManager != null)
         victoryManager.CheckVictoryConditions();
 }
+
+
 
 
    public override void OnJoinedRoom()
@@ -241,5 +243,12 @@ public void RPC_KillPlayer(string playerName)
     {
         PhotonNetwork.LeaveRoom();
         PhotonNetwork.LoadLevel("RoomList");
+    }
+     public override void OnLeftRoom()
+    {
+        // Сбрасываем настройки, связанные с игровой логикой.
+        Hashtable resetProps = new Hashtable();
+        resetProps["isDead"] = false;
+        PhotonNetwork.LocalPlayer.SetCustomProperties(resetProps);
     }
 } 
