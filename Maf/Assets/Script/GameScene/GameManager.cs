@@ -5,7 +5,6 @@ using Photon.Pun;
 using Photon.Realtime;
 using ExitGames.Client.Photon;
 
-
 public class GameManager : MonoBehaviourPunCallbacks
 {
     [Header("UI")]
@@ -21,23 +20,19 @@ public class GameManager : MonoBehaviourPunCallbacks
     public DeathWindow deathWindow;
     public VictoryManager victoryManager;
 
-
     private void Start()
     {   
         PhotonNetwork.AutomaticallySyncScene = true;
         UpdateRoomInfo();
-
         exitButton.onClick.AddListener(ExitGame);
 
-        // Назначаем роли при старте (если мы мастер)
+        // Если мы мастер, назначаем роли и уникальные номера игрокам
         if (PhotonNetwork.IsMasterClient)
         {
             Player[] players = PhotonNetwork.PlayerList;
 
-            // Случайный индекс мафии
+            // Выбираем случайного мафию и комиссара
             int mafiaIndex = Random.Range(0, players.Length);
-
-            // Случайный индекс комиссара (не совпадающий с мафией)
             int commissionerIndex = mafiaIndex;
             while (commissionerIndex == mafiaIndex)
             {
@@ -48,18 +43,21 @@ public class GameManager : MonoBehaviourPunCallbacks
             {
                 string role = "civilian";
                 if (i == mafiaIndex) role = "mafia";
-                else if (i == commissionerIndex) role = "commissar"; // новая роль
+                else if (i == commissionerIndex) role = "commissar";
 
+                // Назначаем игроку роль, уникальный номер и дефолтное состояние "не мёртв"
                 ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
                 {
-                    { "role", role }
+                    { "role", role },
+                    { "playerNumber", i },
+                    { "isDead", false }
                 };
                 players[i].SetCustomProperties(props);
-                Debug.Log($"[Role Assignment] Игрок {players[i].NickName} получил роль: {role}");
+                Debug.Log($"[Role Assignment] Игрок {players[i].NickName} получил роль: {role} с номером {i}");
             }
         }
 
-        // Обновляем имя и роль для локального игрока
+        // Обновляем UI для локального игрока
         if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
         {
             string roleText = roleObj.ToString();
@@ -71,7 +69,6 @@ public class GameManager : MonoBehaviourPunCallbacks
         }
         else
         {
-            // Если роль еще не назначена, задаем дефолтное значение (например, civilian)
             playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (civilian)";
             if (roleInfoText != null)
             {
@@ -86,7 +83,6 @@ public class GameManager : MonoBehaviourPunCallbacks
         playerCountText.text = "Игроков: " + PhotonNetwork.CurrentRoom.PlayerCount;
     }
 
-    // Обновляем панель игроков при входе/выходе
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
         UpdateRoomInfo();
@@ -101,83 +97,77 @@ public class GameManager : MonoBehaviourPunCallbacks
             playersPanelController.UpdatePlayersList();
     }
 
-    // Обработка обновления свойств игрока
-  public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
-{
-    // Проверка изменения свойства "role" (уже было)
-    if (changedProps.ContainsKey("role"))
+    public override void OnPlayerPropertiesUpdate(Player targetPlayer, ExitGames.Client.Photon.Hashtable changedProps)
     {
-        string newRole = targetPlayer.CustomProperties["role"].ToString();
-        Debug.Log($"[Role Update] {targetPlayer.NickName} получил роль {newRole}");
-
-        if (targetPlayer.IsLocal)
+        // Обработка изменения роли
+        if (changedProps.ContainsKey("role"))
         {
-            playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + newRole + ")";
-            if (roleInfoText != null)
-            {
-                roleInfoText.text = "Ваша роль: " + newRole;
-            }
+            string newRole = targetPlayer.CustomProperties["role"].ToString();
+            Debug.Log($"[Role Update] {targetPlayer.NickName} получил роль {newRole}");
 
-            string description = GetRoleDescription(newRole);
-            if (roleDescriptionPanel != null)
+            if (targetPlayer.IsLocal)
             {
-                roleDescriptionPanel.ShowPanel(description);
+                playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + newRole + ")";
+                if (roleInfoText != null)
+                {
+                    roleInfoText.text = "Ваша роль: " + newRole;
+                }
+
+                string description = GetRoleDescription(newRole);
+                if (roleDescriptionPanel != null)
+                {
+                    roleDescriptionPanel.ShowPanel(description);
+                }
+            }
+        }
+
+        // Обработка изменения свойства "isDead"
+        if (changedProps.ContainsKey("isDead"))
+        {
+            bool isDead = (bool)targetPlayer.CustomProperties["isDead"];
+            Debug.Log($"[Death Update] {targetPlayer.NickName} isDead = {isDead}");
+
+            if (targetPlayer.IsLocal && isDead)
+            {
+                if (deathWindow != null)
+                {
+                    deathWindow.ShowDeathMessage(PhotonNetwork.NickName);
+                }
             }
         }
     }
 
-    // Проверка изменения свойства "isDead"
-    if (changedProps.ContainsKey("isDead"))
+    public string GetRoleDescription(string role)
     {
-        // Получаем значение свойства. Предполагаем, что значение хранится как bool.
-        bool isDead = (bool)targetPlayer.CustomProperties["isDead"];
-        Debug.Log($"[Death Update] {targetPlayer.NickName} isDead = {isDead}");
-
-        // Если обновление касается локального игрока и флаг установлен в true
-        if (targetPlayer.IsLocal && isDead)
+        switch (role.ToLower())
         {
-            // Вызываем окно смерти, передавая имя игрока для отображения сообщения
-            if (deathWindow != null)
-            {
-                deathWindow.ShowDeathMessage(PhotonNetwork.NickName);
-            }
+            case "mafia":
+                return "Вы - мафия. Ваша цель — устранить всех мирных жителей, оставаясь в тени. Будьте хитры и расчетливы.";
+            case "commissar":
+                return "Вы - комиссар. Используйте свои аналитические способности, чтобы выявить мафию и защитить невинных.";
+            case "civilian":
+            default:
+                return "Вы - мирный житель. Ваша задача — выжить и помочь разоблачить мафию.";
         }
     }
-}
 
-public string GetRoleDescription(string role)
-{
-    // Приводим роль к нижнему регистру для универсальности.
-    switch (role.ToLower())
+    [PunRPC]
+    public void RPC_KillPlayer_ByActorNumber(int targetActorNumber)
     {
-        case "mafia":
-            return "Вы - мафия. Ваша цель — устранить всех мирных жителей, оставаясь в тени. Будьте хитры и расчетливы.";
-        case "commissar":
-            return "Вы - комиссар. Используйте свои аналитические способности, чтобы выявить мафию и защитить невинных.";
-        case "civilian":
-        default:
-            return "Вы - мирный житель. Ваша задача — выжить и помочь разоблачить мафию.";
-    }
-}
-
-[PunRPC]
-public void RPC_KillPlayer(string playerName)
-{
-    foreach (Player player in PhotonNetwork.PlayerList)
-    {
-        if (player.NickName == playerName)
+        foreach (Player player in PhotonNetwork.PlayerList)
         {
-            Debug.Log($"[GameManager] Устанавливаем isDead для {player.NickName}");
-            ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
+            if (player.ActorNumber == targetActorNumber)
             {
-                { "isDead", true }
-            };
-            player.SetCustomProperties(props);
-
-            // Если убит комиссар, объявляем это в чате
-            if (player.CustomProperties.TryGetValue("role", out object roleObj))
-            {
-                if (roleObj.ToString().ToLower() == "commissar")
+                Debug.Log($"[GameManager] Устанавливаем isDead для {player.NickName} (ActorNumber {targetActorNumber})");
+                
+                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
+                {
+                    { "isDead", true }
+                };
+                player.SetCustomProperties(props);
+                
+                if (player.CustomProperties.TryGetValue("role", out object roleObj) &&
+                    roleObj.ToString().ToLower() == "commissar")
                 {
                     GameChat chat = FindAnyObjectByType<GameChat>();
                     if (chat != null)
@@ -186,69 +176,109 @@ public void RPC_KillPlayer(string playerName)
                             "Внимание! Комиссар мертв!", " ");
                     }
                 }
+                
+                if (player.IsLocal)
+                {
+                    Debug.Log("[GameManager] Локальный игрок (хост) убит. Вызываем окно смерти.");
+                    if (deathWindow != null)
+                    {
+                        deathWindow.ShowDeathMessage(player.NickName);
+                    }
+                }
+                
+                break;
             }
-            break; // прекращаем цикл после нахождения игрока
         }
+
+        if (playersPanelController != null)
+            playersPanelController.UpdatePlayersList();
+
+        if (PhotonNetwork.IsMasterClient && victoryManager != null)
+            victoryManager.CheckVictoryConditions();
     }
 
-    if (playersPanelController != null)
-        playersPanelController.UpdatePlayersList();
-
-    // Если мы мастер, вызываем проверку победы (чтобы не было повторных вызовов)
-    if (PhotonNetwork.IsMasterClient && victoryManager != null)
-        victoryManager.CheckVictoryConditions();
-}
-
-
-
-
-   public override void OnJoinedRoom()
-{
-    // Если роль уже назначена, получаем её из кастомных свойств.
-    if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
+    public override void OnJoinedRoom()
     {
-        string roleText = roleObj.ToString();
-        Debug.Log($"[OnJoinedRoom] {PhotonNetwork.LocalPlayer.NickName} имеет роль: {roleText}");
-
-        // Обновляем UI с именем и ролью.
-        playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + roleText + ")";
-        if (roleInfoText != null)
+        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
         {
-            roleInfoText.text = "Ваша роль: " + roleText;
+            string roleText = roleObj.ToString();
+            Debug.Log($"[OnJoinedRoom] {PhotonNetwork.LocalPlayer.NickName} имеет роль: {roleText}");
+            playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (" + roleText + ")";
+            if (roleInfoText != null)
+            {
+                roleInfoText.text = "Ваша роль: " + roleText;
+            }
+
+            string description = GetRoleDescription(roleText);
+            if (roleDescriptionPanel != null)
+            {
+                roleDescriptionPanel.ShowPanel(description);
+            }
         }
-
-        // Получаем интересное описание для роли.
-        string description = GetRoleDescription(roleText);
-
-        // Если панель описания роли подключена, отображаем описание.
-        if (roleDescriptionPanel != null)
+        else
         {
-            roleDescriptionPanel.ShowPanel(description);
+            Debug.LogWarning("[OnJoinedRoom] Роль не установлена, задаём civilian по умолчанию");
+            playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (civilian)";
+            if (roleInfoText != null)
+            {
+                roleInfoText.text = "Ваша роль: civilian";
+            }
         }
     }
-    else
+
+    [PunRPC]
+    public void RPC_SendVotingResult(int eliminatedActorNumber)
     {
-        // Если роль не установлена, назначаем значение по умолчанию.
-        Debug.LogWarning("[OnJoinedRoom] Роль не установлена, задаём civilian по умолчанию");
-        playerNameText.text = "Вы: " + PhotonNetwork.NickName + " (civilian)";
-        if (roleInfoText != null)
+        foreach (Player player in PhotonNetwork.PlayerList)
         {
-            roleInfoText.text = "Ваша роль: civilian";
+            if (player.ActorNumber == eliminatedActorNumber)
+            {
+                Debug.Log($"[GameManager] RPC_SendVotingResult: убиваем {player.NickName} (ActorNumber {eliminatedActorNumber})");
+                
+                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
+                {
+                    { "isDead", true }
+                };
+                player.SetCustomProperties(props);
+                
+                if (player.CustomProperties.TryGetValue("role", out object roleObj) &&
+                    roleObj.ToString().ToLower() == "commissar")
+                {
+                    GameChat chat = FindAnyObjectByType<GameChat>();
+                    if (chat != null)
+                    {
+                        chat.photonView.RPC("RPC_AddMessage", RpcTarget.All,
+                            "Внимание! Комиссар мертв!", " ");
+                    }
+                }
+                
+                if (player.IsLocal)
+                {
+                    Debug.Log("[GameManager] Локальный игрок убит. Вызываем окно смерти.");
+                    if (deathWindow != null)
+                    {
+                        deathWindow.ShowDeathMessage(player.NickName);
+                    }
+                }
+                
+                break;
+            }
         }
+        
+        if (playersPanelController != null)
+            playersPanelController.UpdatePlayersList();
     }
-}
-
 
     public void ExitGame()
     {
         PhotonNetwork.LeaveRoom();
         PhotonNetwork.LoadLevel("RoomList");
     }
-     public override void OnLeftRoom()
+
+    public override void OnLeftRoom()
     {
-        // Сбрасываем настройки, связанные с игровой логикой.
         Hashtable resetProps = new Hashtable();
         resetProps["isDead"] = false;
         PhotonNetwork.LocalPlayer.SetCustomProperties(resetProps);
     }
-} 
+}

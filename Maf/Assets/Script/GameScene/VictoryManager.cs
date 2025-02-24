@@ -11,11 +11,35 @@ public class VictoryManager : MonoBehaviourPun
     // Флаг, чтобы победа фиксировалась только один раз
     private bool victoryAssigned = false;
 
-    // Метод проверки условий победы – вызывается мастером после каждого убийства
+    // Новый метод Update для проверки победы в любой фазе (только на мастере)
+    void Update()
+    {
+        if (!PhotonNetwork.IsMasterClient)
+            return;
+
+        if (!victoryAssigned)
+            CheckVictoryConditions();
+    }
+
+    // Метод проверки условий победы – можно оставить почти без изменений
     public void CheckVictoryConditions()
 {
     if (victoryAssigned)
         return;
+
+    // Если игра ещё в фазе предстарта, не проверяем победу
+    if (phaseManager.CurrentPhase == GamePhase.GameStart)
+        return;
+
+    // Проверяем, что у всех игроков уже назначена роль
+    foreach (Player player in PhotonNetwork.PlayerList)
+    {
+        if (!player.CustomProperties.ContainsKey("role"))
+        {
+            // Роли ещё не установлены – выходим из метода
+            return;
+        }
+    }
 
     int mafiaAlive = 0;
     int civiliansAlive = 0;
@@ -51,18 +75,18 @@ public class VictoryManager : MonoBehaviourPun
     }
 }
 
-[PunRPC]
-public void RPC_ShowVictoryMessage(string victoryMessage)
-{
-    if (victoryPanel != null)
-        victoryPanel.ShowVictoryMessage(victoryMessage);
 
-    // Останавливаем таймер и переключаем фазу на день
-    if (phaseManager != null)
+    [PunRPC]
+    public void RPC_ShowVictoryMessage(string victoryMessage)
     {
-        phaseManager.StopTimer();
-        phaseManager.SetPhase(GamePhase.DayDiscussion);
-    }
-}
+        if (victoryPanel != null)
+            victoryPanel.ShowVictoryMessage(victoryMessage);
 
+        // Останавливаем таймер и переключаем фазу на день
+        if (phaseManager != null)
+        {
+            phaseManager.StopTimer(); // Останавливаем таймер
+            phaseManager.SetPhase(GamePhase.DayDiscussion); // Переключаем в дневную фазу
+        }
+    }
 }

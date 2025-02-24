@@ -4,15 +4,17 @@ using Photon.Pun;
 
 public enum GamePhase
 {
-    NightDiscussion,   // Ночное обсуждение
-    NightVoting,       // Ночное голосование
-    DayDiscussion,     // Дневное обсуждение
-    DayVoting          // Дневное голосование
+    GameStart,          // Предфаза для загрузки
+    NightDiscussion,    // Ночное обсуждение
+    NightVoting,        // Ночное голосование
+    DayDiscussion,      // Дневное обсуждение
+    DayVoting           // Дневное голосование
 }
 
 public class PhaseManager : MonoBehaviour
 {
     [Header("Дефолтные значения длительности фаз (секунды)")]
+    public float defaultGameStartTime = 3f; 
     public float defaultNightDiscussionTime = 30f;
     public float defaultNightVotingTime = 20f;
     public float defaultDayDiscussionTime = 30f;
@@ -27,16 +29,36 @@ public class PhaseManager : MonoBehaviour
     public GamePhase CurrentPhase { get; private set; }
     public float CurrentTime { get; private set; }
 
-    private Text timerText; 
-    public VotingManager votingManager; 
+    private Text timerText;
+    public VotingManager votingManager;
     public CommissarRoleController commissarRoleController;
 
-    // Новый флаг для остановки таймера после победы
+    // Флаг для остановки таймера после победы
     private bool gameEnded = false;
+
+    // --- Новые поля для организации первого цикла ---
+    private bool firstCycle = true;
+    private int firstCycleIndex = 0;
+    // Порядок фаз в первом цикле:
+    // 0: GameStart (предфаза)
+    // 1: DayDiscussion — первый раз дневное обсуждение
+    // 2: NightDiscussion
+    // 3: NightVoting
+    // 4: DayDiscussion — повторное дневное обсуждение
+    // 5: DayVoting
+    private readonly GamePhase[] firstCycleOrder = new GamePhase[]
+    {
+        GamePhase.GameStart,
+        GamePhase.DayDiscussion,
+        GamePhase.NightDiscussion,
+        GamePhase.NightVoting,
+        GamePhase.DayDiscussion,
+        GamePhase.DayVoting
+    };
 
     void Start()
     {
-        // Если мы в комнате, получаем настройки из CustomRoomProperties
+        // Получение настроек длительности фаз (если есть)
         if (PhotonNetwork.InRoom && PhotonNetwork.CurrentRoom.CustomProperties != null)
         {
             var props = PhotonNetwork.CurrentRoom.CustomProperties;
@@ -47,21 +69,20 @@ public class PhaseManager : MonoBehaviour
         }
         else
         {
-            // Если настроек нет, используем дефолтные значения
             nightDiscussionTime = defaultNightDiscussionTime;
             nightVotingTime = defaultNightVotingTime;
             dayDiscussionTime = defaultDayDiscussionTime;
             dayVotingTime = defaultDayVotingTime;
         }
 
-        // Начинаем с ночного обсуждения
-        SetPhase(GamePhase.NightDiscussion);
+        // Запускаем первую фазу — предфазу
+        SetPhase(GamePhase.GameStart);
     }
 
     void Update()
     {
         if (gameEnded)
-            return; // Если игра окончена, таймер больше не обновляется
+            return;
 
         CurrentTime -= Time.deltaTime;
         if (CurrentTime <= 0f)
@@ -71,66 +92,117 @@ public class PhaseManager : MonoBehaviour
         UpdateTimerUI();
     }
 
-    // Устанавливаем фазу и задаём соответствующее время
-   public void SetPhase(GamePhase newPhase)
-{
-    CurrentPhase = newPhase;
-    switch (newPhase)
+    // Метод для установки фазы и соответствующего времени
+    public void SetPhase(GamePhase newPhase)
     {
-        case GamePhase.NightDiscussion:
-            CurrentTime = nightDiscussionTime;
-            break;
-        case GamePhase.NightVoting:
-            CurrentTime = nightVotingTime;
-            break;
-        case GamePhase.DayDiscussion:
-            CurrentTime = dayDiscussionTime;
-            break;
-        case GamePhase.DayVoting:
-            CurrentTime = dayVotingTime;
-            break;
-    }
-    
-    // Если новая фаза не NightVoting, скрываем комиссарскую панель
-    if (newPhase != GamePhase.NightVoting && commissarRoleController != null)
-    {
-        commissarRoleController.HideCommissionerPanel();
-    }
-}
-
-    // Переход к следующей фазе по кругу
-    public void AdvancePhase()
-    {
-        switch (CurrentPhase)
+        CurrentPhase = newPhase;
+        switch (newPhase)
         {
+            case GamePhase.GameStart:
+                CurrentTime = defaultGameStartTime;
+                break;
             case GamePhase.NightDiscussion:
-                SetPhase(GamePhase.NightVoting);
-                ShowCommissarPanelIfNeeded();
-                if (commissarRoleController != null)
-                {
-                    commissarRoleController.ResetCheck();
-                }
-                votingManager?.ShowVotingPanel();
+                CurrentTime = nightDiscussionTime;
                 break;
-
             case GamePhase.NightVoting:
-                votingManager?.EndVoting();
-                SetPhase(GamePhase.DayDiscussion);
+                CurrentTime = nightVotingTime;
                 break;
-
             case GamePhase.DayDiscussion:
-                SetPhase(GamePhase.DayVoting);
-                votingManager?.ShowVotingPanel();
+                CurrentTime = dayDiscussionTime;
                 break;
-
             case GamePhase.DayVoting:
-                votingManager?.EndVoting();
-                SetPhase(GamePhase.NightDiscussion);
+                CurrentTime = dayVotingTime;
                 break;
+        }
+
+        // Скрываем комиссарскую панель, если фаза не ночное голосование
+        if (newPhase != GamePhase.NightVoting && commissarRoleController != null)
+        {
+            commissarRoleController.HideCommissionerPanel();
         }
     }
 
-    // Обновление UI таймера (изменение текста и цвета в последние 5 секунд)
+    // Метод для перехода к следующей фазе
+    public void AdvancePhase()
+    {
+        if (firstCycle)
+        {
+            firstCycleIndex++;
+            if (firstCycleIndex < firstCycleOrder.Length)
+            {
+                GamePhase nextPhase = firstCycleOrder[firstCycleIndex];
+                // Сохраняем предыдущую фазу для логики перехода
+                GamePhase prevPhase = CurrentPhase;
+                // Обновляем фазу
+                SetPhase(nextPhase);
+            
+                // Логика для первого цикла в зависимости от перехода
+                if (prevPhase == GamePhase.NightDiscussion && nextPhase == GamePhase.NightVoting)
+                {
+                ShowCommissarPanelIfNeeded();
+                 if (commissarRoleController != null)
+                 commissarRoleController.ResetCheck();
+                 // Вызываем ShowVotingPanel на всех клиентах для инициализации словаря голосов.
+                  // UI-панель будет показана только у мафии согласно внутренней проверке.
+                    votingManager?.ShowVotingPanel();
+                }
+
+                else if (prevPhase == GamePhase.NightVoting && nextPhase == GamePhase.DayDiscussion)
+                {
+                    votingManager?.EndVoting();
+                }
+                else if (prevPhase == GamePhase.DayDiscussion && nextPhase == GamePhase.DayVoting)
+                {
+                    votingManager?.ShowVotingPanel();
+                }
+                else if (prevPhase == GamePhase.DayVoting)
+                {
+                    votingManager?.EndVoting();
+                }
+            
+                if (firstCycleIndex == firstCycleOrder.Length - 1)
+                {
+                    firstCycle = false;
+                }
+            }
+            else
+            {
+                // На всякий случай переходим в обычный цикл
+                SetPhase(GamePhase.NightDiscussion);
+                firstCycle = false;
+            }
+        }
+        else
+        {
+            // Обычная схема фаз
+            switch (CurrentPhase)
+            {
+                case GamePhase.NightDiscussion:
+                    SetPhase(GamePhase.NightVoting);
+                    if (commissarRoleController != null)
+                        commissarRoleController.ResetCheck();
+                    ShowCommissarPanelIfNeeded();
+                    votingManager?.ShowVotingPanel();
+                    break;
+                case GamePhase.NightVoting:
+                    votingManager?.EndVoting();
+                    SetPhase(GamePhase.DayDiscussion);
+                    break;
+                case GamePhase.DayDiscussion:
+                    SetPhase(GamePhase.DayVoting);
+                    votingManager?.ShowVotingPanel();
+                    break;
+                case GamePhase.DayVoting:
+                    votingManager?.EndVoting();
+                    SetPhase(GamePhase.NightDiscussion);
+                    if (commissarRoleController != null)
+                        commissarRoleController.ResetCheck();
+                    break;
+            }
+        }
+    }
+
+    // Обновление UI таймера
     void UpdateTimerUI()
     {
         if (timerText != null)
@@ -139,6 +211,9 @@ public class PhaseManager : MonoBehaviour
             string phaseName = "";
             switch (CurrentPhase)
             {
+                case GamePhase.GameStart:
+                    phaseName = "Предфаза";
+                    break;
                 case GamePhase.NightDiscussion:
                     phaseName = "Ночное обсуждение";
                     break;
@@ -170,10 +245,14 @@ public class PhaseManager : MonoBehaviour
         }
     }
 
-    // Метод для остановки таймера при достижении победных условий
+    // Остановка таймера при достижении победных условий
     public void StopTimer()
     {
-        gameEnded = true;
-        Debug.Log("Таймер остановлен. Игра окончена.");
+      gameEnded = true;
+
+      if(timerText != null){
+        timerText.text = "День";
+        timerText.color = Color.white;
+      }
     }
 }
