@@ -1,0 +1,12 @@
+# ninja log v5
+49	2405	7672260734178351	FramePacing/CMakeFiles/swappywrapper.dir/UnitySwappyWrapper.cpp.o	52c83e52c7fbb15c
+33	6847	7672260782478094	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	3b34936c7c7c4d7c
+13	6905	7672260787964310	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	242b2194041e42bd
+23	7415	7672260783208874	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	f4356acffa312f3
+39	7477	7672260789074437	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	2138be407a16efbe
+44	7908	7672260797885776	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	591e06f6a9c3775f
+18	8088	7672260799486624	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	ce56ddaa77a75625
+2407	8848	7672260805463572	E:/Egg/Mafia/Maf/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/636q5m14/obj/arm64-v8a/libswappywrapper.so	f442d1cce2834d61
+29	9141	7672260810255821	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	4cc601c1735868d5
+2	9167	7672260809666882	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	8d5200be3932abaf
+9169	9734	7672260816382343	E:/Egg/Mafia/Maf/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/636q5m14/obj/arm64-v8a/libgame.so	76fd1048b515df22
