@@ -51,6 +51,7 @@ MonoBehaviour:
   - RPC_ShowVictoryMessage
   - RPC_KillPlayer_ByActorNumber
   - RPC_SendVotingResult
+  - RPC_HealPlayer
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 1

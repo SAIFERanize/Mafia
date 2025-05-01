@@ -12,11 +12,18 @@ public class DoctorRoleController : MonoBehaviourPun
 
     [Header("Ссылка на PhaseManager")]
     public PhaseManager phaseManager;
+    [Header("Кнопка самохил")]
+    public Button selfHealButton; // назначь в инспекторе
+    private int remainingSelfHeals = 1;
 
     private bool hasHealed = false;
 
+    private int maxSelfHeals = 1;
+
     private void Start()
     {
+        remainingSelfHeals = maxSelfHeals;
+
         if (phaseManager == null)
         {
             phaseManager = FindAnyObjectByType<PhaseManager>();
@@ -26,6 +33,11 @@ public class DoctorRoleController : MonoBehaviourPun
         {
             enabled = false;
             if (votingPanel) votingPanel.SetActive(false);
+        }
+        if (selfHealButton != null)
+        {
+            selfHealButton.onClick.AddListener(UseSelfHeal);
+            selfHealButton.gameObject.SetActive(false);
         }
     }
 
@@ -81,6 +93,13 @@ public class DoctorRoleController : MonoBehaviourPun
                 }
             }
         }
+        if (selfHealButton != null)
+        {
+            bool canUseSelfHeal = remainingSelfHeals > 0 && !hasHealed && !IsLocalPlayerDead();
+            selfHealButton.gameObject.SetActive(true);
+            selfHealButton.interactable = canUseSelfHeal;
+        }
+
     }
 
     private void OnDoctorHeal(string targetPlayerName)
@@ -91,13 +110,44 @@ public class DoctorRoleController : MonoBehaviourPun
         if (votingPanel != null)
             votingPanel.SetActive(false);
 
+        // Если доктор пытается лечить сам себя:
+        if (targetPlayerName == PhotonNetwork.LocalPlayer.NickName)
+        {
+            if (remainingSelfHeals > 0)
+            {
+                remainingSelfHeals--;
+                Debug.Log("Доктор использовал самохил. Осталось: " + remainingSelfHeals);
+            }
+            else
+            {
+                Debug.Log("Самохил недоступен. Осталось попыток: 0");
+                return;
+            }
+        }
+
         photonView.RPC("RPC_HealPlayer", RpcTarget.MasterClient, targetPlayerName); // лечение обрабатывает MasterClient
     }
+    private void UseSelfHeal()
+    {
+        if (hasHealed || remainingSelfHeals <= 0 || IsLocalPlayerDead()) return;
+
+        hasHealed = true;
+        remainingSelfHeals--;
+
+        if (votingPanel != null)
+            votingPanel.SetActive(false);
+
+        photonView.RPC("RPC_HealPlayer", RpcTarget.MasterClient, PhotonNetwork.LocalPlayer.NickName);
+        Debug.Log("[Doctor] Самохил использован. Осталось: " + remainingSelfHeals);
+
+        if (selfHealButton != null)
+            selfHealButton.interactable = false;
+    }
+
 
     [PunRPC]
     private void RPC_HealPlayer(string targetPlayerName, PhotonMessageInfo info)
     {
-        // Сохраняем игрока, которого доктор лечит — это можно применить в PhaseManager при проверке убийства мафией.
         Debug.Log($"Доктор пытается лечить игрока: {targetPlayerName}");
 
         PhaseManager manager = FindAnyObjectByType<PhaseManager>();
@@ -107,9 +157,41 @@ public class DoctorRoleController : MonoBehaviourPun
         }
     }
 
+    public void SelectTargetToHeal(string targetName)
+    {
+        if (hasHealed) return;
+
+        hasHealed = true;
+
+        if (targetName == PhotonNetwork.LocalPlayer.NickName)
+        {
+            if (remainingSelfHeals > 0)
+            {
+                remainingSelfHeals--;
+                Debug.Log("Доктор использовал самохил. Осталось: " + remainingSelfHeals);
+            }
+            else
+            {
+                Debug.Log("Нет попыток самохилиться.");
+                return;
+            }
+        }
+
+        photonView.RPC("RPC_HealPlayer", RpcTarget.MasterClient, targetName);
+    }
+
+    public bool CanSelfHeal()
+    {
+        return remainingSelfHeals > 0 && !hasHealed;
+    }
     public void ResetHeal()
     {
         hasHealed = false;
+    }
+
+    public void ResetSelfHealCooldown()
+    {
+        remainingSelfHeals = maxSelfHeals;
     }
 
     public void HideDoctorPanel()

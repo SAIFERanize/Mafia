@@ -14,16 +14,15 @@ public class VotingEntry : MonoBehaviour
     
     [Tooltip("Кнопка голосования")]
     public Button voteButton;
-
     // Callback-функция, вызываемая при нажатии на кнопку голосования
     private Action<string> onVoteButtonClicked;
     private string playerName;
-
+    private Action<string> onVoteCallback;
     /// Инициализирует элемент голосования.
     /// <param name="name">Имя игрока</param>
     /// <param name="isDead">Если true – игрок мёртв</param>
     /// <param name="callback">Callback на нажатие</param>
-  public void Setup(string name, bool isDead, Action<string> callback)
+    public void Setup(string name, bool isDead, Action<string> callback)
 {
     playerName = name;
     playerNameText.text = name;
@@ -70,8 +69,18 @@ public class VotingEntry : MonoBehaviour
             playerNameText.color = Color.white;
         }
     }
-    /// Обновляет отображение количества голосов.
-    public void SetVoteCount(int count)
+    public void SetupForDoctor(string name, bool isDead, Action<string> callback)
+    {
+        playerName = name;
+        playerNameText.text = name;
+        onVoteCallback = callback;
+
+        voteButton.interactable = !isDead;
+        voteButton.onClick.RemoveAllListeners();
+        voteButton.onClick.AddListener(() => onVoteCallback?.Invoke(playerName));
+    }
+/// Обновляет отображение количества голосов.
+public void SetVoteCount(int count)
     {
         voteCountText.text = count.ToString();
     }

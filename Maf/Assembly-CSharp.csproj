@@ -67,7 +67,6 @@
     <Compile Include="Assets\Script\GameScene\PlayersPanelController.cs" />
     <Compile Include="Assets\Script\Roles\DoctorRoleController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\EnvMapAnimator.cs" />
-    <Compile Include="Assets\Script\Roles\DoctorUI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_A.cs" />
     <Compile Include="Assets\Script\GameScene\GameChat.cs" />
     <Compile Include="Assets\Script\GameScene\RoleAssigner.cs" />

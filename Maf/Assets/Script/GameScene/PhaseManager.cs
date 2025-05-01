@@ -100,6 +100,7 @@ public class PhaseManager : MonoBehaviour
     public void SetPhase(GamePhase newPhase)
     {
         CurrentPhase = newPhase;
+
         switch (newPhase)
         {
             case GamePhase.GameStart:
@@ -117,18 +118,20 @@ public class PhaseManager : MonoBehaviour
             case GamePhase.DayVoting:
                 CurrentTime = dayVotingTime;
                 break;
+            default:
+                Debug.LogWarning($"Неизвестная фаза: {newPhase}");
+                CurrentTime = 10f;
+                break;
         }
 
-        // Скрываем комиссарскую панель, если фаза не ночное голосование
-        if (newPhase != GamePhase.NightVoting && commissarRoleController != null)
+        // Скрываем панели, если фаза не NightVoting
+        if (newPhase != GamePhase.NightVoting)
         {
-            commissarRoleController.HideCommissionerPanel();
-        }
-        if (newPhase != GamePhase.NightVoting && doctorRoleController != null)
-        {
-            doctorRoleController.HideDoctorPanel();
+            commissarRoleController?.HideCommissionerPanel();
+            doctorRoleController?.HideDoctorPanel();
         }
     }
+
 
     // Метод для перехода к следующей фазе
     public void AdvancePhase()
@@ -139,36 +142,25 @@ public class PhaseManager : MonoBehaviour
             if (firstCycleIndex < firstCycleOrder.Length)
             {
                 GamePhase nextPhase = firstCycleOrder[firstCycleIndex];
-                // Сохраняем предыдущую фазу для логики перехода
                 GamePhase prevPhase = CurrentPhase;
-                // Обновляем фазу
+
                 SetPhase(nextPhase);
-            
-                // Логика для первого цикла в зависимости от перехода
+
+                // Выполняем действия после смены фазы
                 if (prevPhase == GamePhase.NightDiscussion && nextPhase == GamePhase.NightVoting)
                 {
-                  if (prevPhase == GamePhase.NightDiscussion && nextPhase == GamePhase.NightVoting)
-                    {
-                        doctorRoleController?.ShowDoctorPanel(); // Показываем панель лечения
-                        doctorRoleController?.ResetSelfHealCooldown(); // Обновляем кулдаун
-                    }
-                    else if (prevPhase == GamePhase.NightVoting && nextPhase == GamePhase.DayDiscussion)
-                    {
-                        votingManager?.EndVoting();
-                        doctorTarget = null; // очищаем цель доктора
-                    }
+                    ShowDoctorPanelIfNeeded();
+                    doctorRoleController?.ResetSelfHealCooldown();
 
                     ShowCommissarPanelIfNeeded();
-                 if (commissarRoleController != null)
-                 commissarRoleController.ResetCheck();
-                 // Вызываем ShowVotingPanel на всех клиентах для инициализации словаря голосов.
-                  // UI-панель будет показана только у мафии согласно внутренней проверке.
+                    commissarRoleController?.ResetCheck();
+
                     votingManager?.ShowVotingPanel();
                 }
-
                 else if (prevPhase == GamePhase.NightVoting && nextPhase == GamePhase.DayDiscussion)
                 {
                     votingManager?.EndVoting();
+                    doctorTarget = null;
                 }
                 else if (prevPhase == GamePhase.DayDiscussion && nextPhase == GamePhase.DayVoting)
                 {
@@ -178,7 +170,7 @@ public class PhaseManager : MonoBehaviour
                 {
                     votingManager?.EndVoting();
                 }
-            
+
                 if (firstCycleIndex == firstCycleOrder.Length - 1)
                 {
                     firstCycle = false;
@@ -186,40 +178,47 @@ public class PhaseManager : MonoBehaviour
             }
             else
             {
-                // На всякий случай переходим в обычный цикл
                 SetPhase(GamePhase.NightDiscussion);
                 firstCycle = false;
             }
         }
         else
         {
-            // Обычная схема фаз
-            switch (CurrentPhase)
+            GamePhase prevPhase = CurrentPhase;
+
+            switch (prevPhase)
             {
                 case GamePhase.NightDiscussion:
                     SetPhase(GamePhase.NightVoting);
-                    if (commissarRoleController != null)
-                        commissarRoleController.ResetCheck();
+
+                    ShowDoctorPanelIfNeeded();
+                    doctorRoleController?.ResetSelfHealCooldown();
+
                     ShowCommissarPanelIfNeeded();
+                    commissarRoleController?.ResetCheck();
+
                     votingManager?.ShowVotingPanel();
                     break;
+
                 case GamePhase.NightVoting:
                     votingManager?.EndVoting();
+                    doctorTarget = null;
                     SetPhase(GamePhase.DayDiscussion);
                     break;
+
                 case GamePhase.DayDiscussion:
                     SetPhase(GamePhase.DayVoting);
                     votingManager?.ShowVotingPanel();
                     break;
+
                 case GamePhase.DayVoting:
                     votingManager?.EndVoting();
                     SetPhase(GamePhase.NightDiscussion);
-                    if (commissarRoleController != null)
-                        commissarRoleController.ResetCheck();
                     break;
             }
         }
     }
+
     public void SetDoctorTarget(string targetPlayerName)
     {
         doctorTarget = targetPlayerName;
@@ -268,6 +267,19 @@ public class PhaseManager : MonoBehaviour
             if (roleObj.ToString().ToLower() == "commissar")
             {
                 commissar.ShowCommissionerPanel();
+            }
+        }
+    }
+    public void ShowDoctorPanelIfNeeded()
+    {
+        DoctorRoleController doctor = FindFirstObjectByType<DoctorRoleController>();
+        if (doctor == null) return;
+
+        if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
+        {
+            if (roleObj.ToString().ToLower() == "doctor")
+            {
+                doctor.ShowDoctorPanel();
             }
         }
     }
