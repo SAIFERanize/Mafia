@@ -13,6 +13,8 @@ public enum GamePhase
 
 public class PhaseManager : MonoBehaviour
 {
+    
+
     [Header("Дефолтные значения длительности фаз (секунды)")]
     public float defaultGameStartTime = 3f; 
     public float defaultNightDiscussionTime = 30f;
@@ -46,6 +48,8 @@ public class PhaseManager : MonoBehaviour
     // 3: NightVoting
     // 4: DayDiscussion — повторное дневное обсуждение
     // 5: DayVoting
+    private string doctorTarget;
+    public DoctorRoleController doctorRoleController;
     private readonly GamePhase[] firstCycleOrder = new GamePhase[]
     {
         GamePhase.GameStart,
@@ -120,6 +124,10 @@ public class PhaseManager : MonoBehaviour
         {
             commissarRoleController.HideCommissionerPanel();
         }
+        if (newPhase != GamePhase.NightVoting && doctorRoleController != null)
+        {
+            doctorRoleController.HideDoctorPanel();
+        }
     }
 
     // Метод для перехода к следующей фазе
@@ -139,7 +147,18 @@ public class PhaseManager : MonoBehaviour
                 // Логика для первого цикла в зависимости от перехода
                 if (prevPhase == GamePhase.NightDiscussion && nextPhase == GamePhase.NightVoting)
                 {
-                ShowCommissarPanelIfNeeded();
+                  if (prevPhase == GamePhase.NightDiscussion && nextPhase == GamePhase.NightVoting)
+                    {
+                        doctorRoleController?.ShowDoctorPanel(); // Показываем панель лечения
+                        doctorRoleController?.ResetSelfHealCooldown(); // Обновляем кулдаун
+                    }
+                    else if (prevPhase == GamePhase.NightVoting && nextPhase == GamePhase.DayDiscussion)
+                    {
+                        votingManager?.EndVoting();
+                        doctorTarget = null; // очищаем цель доктора
+                    }
+
+                    ShowCommissarPanelIfNeeded();
                  if (commissarRoleController != null)
                  commissarRoleController.ResetCheck();
                  // Вызываем ShowVotingPanel на всех клиентах для инициализации словаря голосов.
@@ -201,7 +220,15 @@ public class PhaseManager : MonoBehaviour
             }
         }
     }
-
+    public void SetDoctorTarget(string targetPlayerName)
+    {
+        doctorTarget = targetPlayerName;
+        Debug.Log($"[PhaseManager] Доктор выбрал цель: {doctorTarget}");
+    }
+    public string GetDoctorTarget()
+    {
+        return doctorTarget;
+    }
     // Обновление UI таймера
     void UpdateTimerUI()
     {

@@ -7,6 +7,8 @@ using ExitGames.Client.Photon;
 
 public class GameManager : MonoBehaviourPunCallbacks
 {
+    private bool rolesAssigned = false;
+
     [Header("UI")]
     public TMP_Text roomInfoText;
     public TMP_Text playerCountText;
@@ -20,42 +22,23 @@ public class GameManager : MonoBehaviourPunCallbacks
     public DeathWindow deathWindow;
     public VictoryManager victoryManager;
 
+    public int mafiaTargetActorNumber = -1;
+    public int doctorTargetActorNumber = -1;
+    void Update()
+    {
+        // Проверка, что все игроки подключены и роли ещё не были назначены
+        if (!rolesAssigned && PhotonNetwork.IsMasterClient && PhotonNetwork.CurrentRoom.PlayerCount >= 3)
+        {
+            RoleAssigner.AssignRoles();
+            rolesAssigned = true;
+        }
+    }
     private void Start()
-    {   
+    {
+
         PhotonNetwork.AutomaticallySyncScene = true;
         UpdateRoomInfo();
         exitButton.onClick.AddListener(ExitGame);
-
-        // Если мы мастер, назначаем роли и уникальные номера игрокам
-        if (PhotonNetwork.IsMasterClient)
-        {
-            Player[] players = PhotonNetwork.PlayerList;
-
-            // Выбираем случайного мафию и комиссара
-            int mafiaIndex = Random.Range(0, players.Length);
-            int commissionerIndex = mafiaIndex;
-            while (commissionerIndex == mafiaIndex)
-            {
-                commissionerIndex = Random.Range(0, players.Length);
-            }
-
-            for (int i = 0; i < players.Length; i++)
-            {
-                string role = "civilian";
-                if (i == mafiaIndex) role = "mafia";
-                else if (i == commissionerIndex) role = "commissar";
-
-                // Назначаем игроку роль, уникальный номер и дефолтное состояние "не мёртв"
-                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable
-                {
-                    { "role", role },
-                    { "playerNumber", i },
-                    { "isDead", false }
-                };
-                players[i].SetCustomProperties(props);
-                Debug.Log($"[Role Assignment] Игрок {players[i].NickName} получил роль: {role} с номером {i}");
-            }
-        }
 
         // Обновляем UI для локального игрока
         if (PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue("role", out object roleObj))
@@ -65,6 +48,12 @@ public class GameManager : MonoBehaviourPunCallbacks
             if (roleInfoText != null)
             {
                 roleInfoText.text = "Ваша роль: " + roleText;
+            }
+
+            string description = GetRoleDescription(roleText);
+            if (roleDescriptionPanel != null)
+            {
+                roleDescriptionPanel.ShowPanel(description);
             }
         }
         else
@@ -76,6 +65,7 @@ public class GameManager : MonoBehaviourPunCallbacks
             }
         }
     }
+
 
     private void UpdateRoomInfo()
     {
@@ -281,4 +271,22 @@ public class GameManager : MonoBehaviourPunCallbacks
         resetProps["isDead"] = false;
         PhotonNetwork.LocalPlayer.SetCustomProperties(resetProps);
     }
+    public void ResolveNight()
+    {
+        if (mafiaTargetActorNumber != -1)
+        {
+            if (mafiaTargetActorNumber == doctorTargetActorNumber)
+            {
+                Debug.Log("Доктор спас игрока: " + mafiaTargetActorNumber);
+            }
+            else
+            {
+                photonView.RPC("RPC_KillPlayer_ByActorNumber", RpcTarget.All, mafiaTargetActorNumber);
+            }
+        }
+
+        mafiaTargetActorNumber = -1;
+        doctorTargetActorNumber = -1;
+    }
+
 }
